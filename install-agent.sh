@@ -24,10 +24,9 @@ else
     exit 1
 fi
 
-# Detect OS type
-if [[ -f /etc/debian_version ]]; then
+if grep -qi "debian\|ubuntu" /etc/os-release; then
     OS_TYPE="deb"
-elif [[ -f /etc/redhat-release || -f /etc/centos-release || -f /etc/os-release && $(grep -i "rhel\|fedora\|centos" /etc/os-release) ]]; then
+elif grep -qi "rhel\|centos\|fedora\|rocky\|almalinux" /etc/os-release; then
     OS_TYPE="rpm"
 else
     echo "[!] Unsupported OS type."
@@ -68,12 +67,25 @@ fi
 read -p "Do you want to install the quarantine-malware.sh active response script? (y/n): " INSTALL_QUARANTINE
 if [[ "$INSTALL_QUARANTINE" =~ ^[Yy]$ ]]; then
     echo "[+] Installing quarantine-malware.sh..."
+
     echo "[+] Installing jq..."
-    sudo apt update
-    sudo apt install jq -y
+    if [[ "$OS_TYPE" == "deb" ]]; then
+        echo "[DEBUG] Installing jq using apt..."
+        sudo apt update
+        sudo apt install -y jq
+    elif [[ "$OS_TYPE" == "rpm" ]]; then
+        echo "[DEBUG] Installing jq using yum/dnf..."
+        if command -v dnf &> /dev/null; then
+            sudo dnf install -y jq
+        else
+            sudo yum install -y jq
+        fi
+    fi
+
     sudo mkdir -p /var/ossec/active-response/bin
     sudo curl -sSL -o /var/ossec/active-response/bin/quarantine-malware.sh \
         https://raw.githubusercontent.com/bayusky/wazuh-custom-rules-and-decoders/main/active-response/quarantine-malware.sh
+
     sudo chown root:wazuh /var/ossec/active-response/bin/quarantine-malware.sh
     sudo chmod 750 /var/ossec/active-response/bin/quarantine-malware.sh
 else
